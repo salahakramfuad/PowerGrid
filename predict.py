@@ -1,6 +1,7 @@
 #predictions+graph
 
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_absolute_percentage_error
@@ -24,6 +25,7 @@ for col in targets:
 
 original_count = len(df)
 df = df.dropna(subset=targets)
+df['Date'] = pd.to_datetime(df['Date'])
 print(f"Dropped {original_count - len(df)} rows containing NaN values.")
 # -------------------------------
 
@@ -82,34 +84,48 @@ print("Generating and saving graphs...")
 sns.set_theme(style="whitegrid")
 
 for target in targets:
-    # Create a figure with 3 subplots for a full report
-    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
-    fig.suptitle(f'Analysis for {target}', fontsize=16)
+    # Create a figure with 2x2 subplots: validation, forecast, error %, feature importance
+    fig, axes = plt.subplots(2, 2, figsize=(18, 10))
+    fig.suptitle(f'Project Analysis: {target} (Northern Bangladesh 132kV)', fontsize=16, fontweight='bold')
 
-    # 1. Validation Plot: 2025 Actual vs Predicted
-    # This helps you see where the MAPE error is actually happening
-    axes[0].plot(val_df.index, val_df[target], label='Actual 2025', color='black', alpha=0.5)
-    axes[0].plot(val_df.index, models[target].predict(val_df[features]), label='Predicted 2025', color='red', linestyle='--')
-    axes[0].set_title('Model Accuracy (2025)')
-    axes[0].legend()
+    # 1. Validation Plot: 2025 Actual vs Predicted (error validation)
+    actual_2025 = val_df[target]
+    predicted_2025 = models[target].predict(val_df[features])
+    mape = mean_absolute_percentage_error(actual_2025, predicted_2025) * 100
+    axes[0, 0].plot(val_df['Date'], val_df[target], label='Actual 2025', color='black', alpha=0.4)
+    axes[0, 0].plot(val_df['Date'], predicted_2025, label='XGBoost Predicted', color='red', linestyle='--')
+    axes[0, 0].set_title(f'Step 4: Validation (MAPE Analysis)\nMAPE: {mape:.2f}%')
+    axes[0, 0].legend()
+    axes[0, 0].set_xlabel('Date (calendar days in 2025)')
 
     # 2. Future Forecast: 2025-2027
-    axes[1].plot(future_df['Date'], future_df[f'Predicted_{target}'], color='green')
-    axes[1].set_title('Forecast (2025-2027)')
-    axes[1].tick_params(axis='x', rotation=45)
+    axes[0, 1].plot(future_df['Date'], future_df[f'Predicted_{target}'], color='green', linewidth=1)
+    axes[0, 1].set_title('Step 3: Future Forecast (2025-2027)')
+    axes[0, 1].tick_params(axis='x', rotation=45)
+    if 'Voltage' in target:
+        axes[0, 1].set_ylim(100, 145)
+        axes[0, 1].axhline(132, color='black', alpha=0.2, label='132kV Nominal')
 
-    # 3. Feature Importance
-    # Shows which factors (Irrigation, Weekends, etc.) moved the needle most
+    # 3. Error percentage over time (daily APE for 2025)
+    ape_pct = np.abs(actual_2025.values - predicted_2025) / (np.abs(actual_2025.values) + 1e-10) * 100
+    axes[1, 0].plot(val_df['Date'], ape_pct, color='darkorange', alpha=0.8, linewidth=0.8)
+    axes[1, 0].axhline(mape, color='red', linestyle='--', alpha=0.7, label=f'Mean (MAPE): {mape:.2f}%')
+    axes[1, 0].set_title('Error Percentage (2025): Daily Absolute % Error')
+    axes[1, 0].set_ylabel('Absolute percentage error (%)')
+    axes[1, 0].set_xlabel('Date (calendar days in 2025)')
+    axes[1, 0].legend()
+
+    # 4. Feature Importance
     importances = models[target].feature_importances_
     feat_imp = pd.Series(importances, index=features).sort_values()
-    feat_imp.plot(kind='barh', ax=axes[2], color='skyblue')
-    axes[2].set_title('What Drives these Predictions?')
+    feat_imp.plot(kind='barh', ax=axes[1, 1], color='skyblue')
+    axes[1, 1].set_title('What Drives the Forecast?')
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     
     # Save the file so you can open it manually
     filename = f"analysis_{target.replace(' ', '_').replace('(', '').replace(')', '')}.png"
-    plt.savefig(filename)
+    plt.savefig(filename, dpi=300)
     print(f"Saved: {filename}")
     
     plt.show() # This will attempt to open a window

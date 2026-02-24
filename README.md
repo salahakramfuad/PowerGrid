@@ -93,7 +93,29 @@ Panchagarh_365_Improvement.xlsx ────────────────
 - **Outputs:**
   - `predictions_2025_validation.xlsx` — 2025 actual vs predicted.
   - `predictions_2025_2027_forecast.xlsx` — daily forecasts 2025–2027.
-  - `analysis_*.png` — validation plot, forecast plot, and feature importance (barh) per target.
+  - `analysis_*.png` — per-target report: validation plot, future forecast, **error percentage graph**, and feature importance (see below).
+
+---
+
+### Understanding the analysis plots (`analysis_*.png`)
+
+Each `analysis_*.png` file (one per target: Load, Max_Voltage, Min_Voltage) contains four panels:
+
+1. **Step 4: Validation (MAPE Analysis)**  
+   - **X-axis:** Calendar date — each point is one day in the year **2025**. The axis shows the actual dates (e.g. Jan 2025 through Dec 2025) so you can see how well the model tracks the real values over time.  
+   - **Y-axis:** The target variable (e.g. Load in MW or Voltage in kV).  
+   - **What it shows:** Black line = actual 2025 values; red dashed line = model predictions for 2025. The title includes the overall **MAPE** (Mean Absolute Percentage Error) for that target.
+
+2. **Step 3: Future Forecast (2025-2027)**  
+   - Model predictions for daily values from 2025 to 2027. For voltage targets, the y-axis is fixed at 100–145 kV with a faint 132 kV nominal reference line.
+
+3. **Error percentage graph (2025)**  
+   - **X-axis:** Same as the validation plot — **calendar date** (each day in 2025).  
+   - **Y-axis:** **Absolute percentage error (%)** — for each day, \(|actual - predicted| / actual \times 100\).  
+   - **What it shows:** How wrong the model was on each day in percentage terms. The orange line is the daily error; the red dashed line is the mean (MAPE) across the year. This panel makes it easy to see which periods had the largest errors.
+
+4. **What Drives the Forecast?**  
+   - This is **feature importance** from the XGBoost model. Each horizontal bar is one input feature (`Year`, `Month`, `DayOfYear`, `DayOfWeek`, `Is_Irrigation`, `Is_Weekend`). Bar length shows how much that feature contributed to the model’s predictions — longer bars mean the model relied on that variable more. For example, if `Is_Irrigation` has the longest bar for Min_Voltage, irrigation season is a strong driver of minimum voltage in the model.
 
 ---
 
