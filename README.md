@@ -193,4 +193,20 @@ Five stages:
 - **Validation year:** 2025  
 - **Forecast period:** 2025–2027 (`predict.py`); 2026–2027 only for capstone plots and mitigation Excel  
 
+### 2025 validation results (MAPE %) by learning rate
+
+Validation uses year 2025 only (actual vs predicted). Same model setup: 500 trees, max_depth=6; only learning rate varies. Lower MAPE = better.
+
+| Learning rate | Load (MW) | Max_Voltage (kV) | Min_Voltage (kV) |
+|---------------|-----------|------------------|------------------|
+| **1%**        | 9.37%     | 3.26%            | 5.38%            |
+| **3%**        | 9.72%     | 3.38%            | 5.37%            |
+| **5%**        | 9.97%     | 3.43%            | 5.45%            |
+| **7%**        | 10.20%    | 3.41%            | 5.55%            |
+| **10%**       | 10.34%    | 3.36%            | 5.54%            |
+
+The default in `predict.py` is 5% learning rate. For this dataset, load achieves best MAPE at 1%; voltage targets are similar across 1–10%.
+
+---
+
 This README documents the technologies used and the methods applied to obtain the forecasts, validation metrics, and FACTS-mitigated voltage profiles.
