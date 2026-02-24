@@ -199,6 +199,7 @@ Validation uses year 2025 only (actual vs predicted). Same model setup: 500 tree
 
 | Learning rate | Load (MW) | Max_Voltage (kV) | Min_Voltage (kV) |
 |---------------|-----------|------------------|------------------|
+| **0.01%**     | 18.23%    | 4.88%            | 7.52%            |
 | **1%**        | 9.37%     | 3.26%            | 5.38%            |
 | **3%**        | 9.72%     | 3.38%            | 5.37%            |
 | **5%**        | 9.97%     | 3.43%            | 5.45%            |
