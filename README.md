@@ -48,6 +48,55 @@ Panchagarh_365_Improvement.xlsx ────────────────
 
 ---
 
+## ML Flowchart
+
+We **train** ML on historical data from **2018 to 2024**, **predict** daily Load and Max/Min Voltage for **2025, 2026, and 2027**, **compare** 2025 predictions to actuals to compute **error percentage** (MAPE/MAE), and **apply FACTS scaling** to the voltage forecast to show how **future fluctuation** is impacted by FACTS application (reduced deviation from nominal, more days within PGCB ±6%).
+
+```mermaid
+flowchart LR
+  subgraph data [Data]
+    A[combinedtill25.xlsx]
+    B[processed_data_step1.csv]
+  end
+  subgraph prep [Preprocessing]
+    C[Date features]
+    D[Is_Irrigation Feb-May]
+    E[Is_Weekend]
+  end
+  subgraph train [Training 2018-2024]
+    F[XGBoost]
+    G[Random Forest]
+  end
+  subgraph pred [Prediction]
+    H[2025 Validation]
+    I[2025-2027 Forecast]
+  end
+  subgraph eval [Evaluation]
+    J[Error percent MAPE/MAE]
+    K[Model comparison plot]
+  end
+  subgraph facts [FACTS]
+    L[PSS/E 365-day improvement]
+    M[Mitigated voltage 2026-2027]
+  end
+  A --> C
+  C --> D
+  D --> E
+  E --> B
+  B --> F
+  B --> G
+  F --> H
+  G --> H
+  F --> I
+  G --> I
+  H --> J
+  J --> K
+  I --> L
+  L --> M
+```
+
+---
+
 ## Methods Used to Produce the Output
 
 ### 1. Data preprocessing (`dataprocess.py`)
@@ -57,7 +106,7 @@ Panchagarh_365_Improvement.xlsx ────────────────
   - Parse `Date` with `pd.to_datetime`.
   - Create **time-based features:** `Year`, `Month`, `Day`, `DayOfYear`, `DayOfWeek`.
   - Create **Bangladesh-specific features:**
-    - **Irrigation season:** `Is_Irrigation = 1` for Feb–Apr (months 2–4), else 0.
+    - **Irrigation season:** `Is_Irrigation = 1` for Feb–May (months 2–5), else 0.
     - **Weekend:** `Is_Weekend = 1` for Fri/Sat (`DayOfWeek` 4, 5), else 0.
 - **Output:** `processed_data_step1.csv` (same rows, added feature columns).
 
@@ -81,19 +130,20 @@ Panchagarh_365_Improvement.xlsx ────────────────
 ### 3. ML training, validation & forecast (`predict.py`)
 
 - **Input:** `processed_data_step1.csv`
-- **Features:** `Year`, `Month`, `DayOfYear`, `DayOfWeek`, `Is_Irrigation`, `Is_Weekend`
-- **Targets:** `Load (MW)`, `Max_Voltage (kV)`, `Min_Voltage (kV)`
+- **Features:** `Year`, `Month`, `DayOfYear`, `DayOfWeek`, `Is_Irrigation` (Feb–May), `Is_Weekend`
+- **Targets:** `Load (MW)` (includes irrigation impact), `Max_Voltage (kV)`, `Min_Voltage (kV)`
 - **Methods:**
   - **Cleaning:** Convert targets to numeric; drop rows with NaN in targets.
-  - **Split:** Train = years ≤ 2024; Validation = year 2025 only.
-  - **Model:** **XGBoost** (`XGBRegressor`, 500 trees, learning_rate=0.05, max_depth=6); fallback to **sklearn `GradientBoostingRegressor`** with same hyperparameters if XGBoost is unavailable.
-  - **Training:** One model per target; fit on `train_df[features]` → `train_df[target]`.
-  - **Validation:** Predict 2025; report **MAPE** (Mean Absolute Percentage Error) per target.
-  - **Forecast:** Generate daily dates 2025–2027; build same features; predict all three targets.
+  - **Split:** Train = years 2018–2024; Validation = year 2025 only.
+  - **Models:** **XGBoost** and **Random Forest** (one per target each); fit on `train_df[features]` → `train_df[target]`.
+  - **Validation:** Predict 2025 with both models; report **MAPE** and **MAE** per target; save **error comparison plot** (XGBoost vs Random Forest).
+  - **Forecast:** Generate daily dates 2025–2027; predict all three targets (Load, Max_Voltage, Min_Voltage) with both models.
 - **Outputs:**
-  - `predictions_2025_validation.xlsx` — 2025 actual vs predicted.
+  - `predictions_2025_validation.xlsx` — 2025 actual vs XGBoost vs Random Forest.
   - `predictions_2025_2027_forecast.xlsx` — daily forecasts 2025–2027.
-  - `analysis_*.png` — per-target report: validation plot, future forecast, **error percentage graph**, and feature importance (see below).
+  - `error_comparison_XGB_vs_RF.png` — MAPE and MAE bar chart (XGBoost vs Random Forest) for Load, Max Voltage, Min Voltage.
+  - `error_timeseries_2025_XGB_vs_RF.png` — daily absolute % error over 2025 for both models.
+  - `analysis_*.png` — per-target report: validation, forecast, error %, feature importance (XGBoost).
 
 ---
 
@@ -139,11 +189,12 @@ Five stages:
   - Produces **Raw** and **Mitigated** voltage series.
 
 - **Stage 5 — Dual-axis plots**  
-  For Max and Min voltage:
+  For Max and Min voltage: **Future voltage fluctuation (2026–2027):** raw forecast vs FACTS-mitigated; FACTS reduces deviation from nominal and dampens fluctuation.
   - Left axis: voltage in p.u. (base 132 kV); right axis: voltage in kV.
   - Y-axis range 100–145 kV (and equivalent p.u.).
   - Plot Raw (green) vs Mitigated (red); horizontal lines for PGCB ±6% (0.94 and 1.06 p.u.).
   - Save `stage5_dual_axis_Max_Voltage.png`, `stage5_dual_axis_Min_Voltage.png`.
+  - Print summary: % of days within PGCB ±6% and max deviation from 1 p.u. (raw vs with FACTS).
 
 - **Additional output:** `capstone_outputs/forecast_2026_2027_with_mitigation.xlsx` — full forecast table including raw and mitigated voltages.
 
@@ -179,7 +230,7 @@ Five stages:
 |--------|----------------|
 | `dataprocess.py` | `processed_data_step1.csv` |
 | `mlprep.py` | `panchagarh_analysis/Panchagarh_365_Improvement.xlsx`, `Panchagarh_Max_Min_Improvement.png` |
-| `predict.py` | `predictions_2025_validation.xlsx`, `predictions_2025_2027_forecast.xlsx`, `analysis_*.png` |
+| `predict.py` | `predictions_2025_validation.xlsx`, `predictions_2025_2027_forecast.xlsx`, `error_comparison_XGB_vs_RF.png`, `error_timeseries_2025_XGB_vs_RF.png`, `analysis_*.png` |
 | `capstone_integration.py` | `capstone_outputs/stage1_forecast_2026_2027.png`, `stage5_dual_axis_*.png`, `forecast_2026_2027_with_mitigation.xlsx` |
 
 ---
@@ -188,7 +239,7 @@ Five stages:
 
 - **Base voltage:** 132 kV  
 - **PGCB limits:** 0.94 p.u. (–6%) and 1.06 p.u. (+6%)  
-- **ML:** XGBoost/GBM — `n_estimators=500`, `learning_rate=0.05`, `max_depth=6`  
+- **ML:** XGBoost (primary) and Random Forest for comparison — XGBoost: `n_estimators=500`, `learning_rate=0.05`, `max_depth=6`; Random Forest: `n_estimators=500`, `max_depth=12`  
 - **Train period:** Up to 2024  
 - **Validation year:** 2025  
 - **Forecast period:** 2025–2027 (`predict.py`); 2026–2027 only for capstone plots and mitigation Excel  

@@ -55,7 +55,7 @@ future_df['Year'] = future_df['Date'].dt.year
 future_df['Month'] = future_df['Date'].dt.month
 future_df['DayOfYear'] = future_df['Date'].dt.dayofyear
 future_df['DayOfWeek'] = future_df['Date'].dt.dayofweek
-future_df['Is_Irrigation'] = future_df['Month'].apply(lambda x: 1 if x in [2, 3, 4] else 0)
+future_df['Is_Irrigation'] = future_df['Month'].apply(lambda x: 1 if x in [2, 3, 4, 5] else 0)
 future_df['Is_Weekend'] = future_df['DayOfWeek'].apply(lambda x: 1 if x in [4, 5] else 0)
 
 for target in targets:
@@ -143,11 +143,25 @@ future_df['Predicted_Min_Voltage_kV_Mitigated'] = raw_to_mitigated_kv(
 print("Stage 4 done: Mitigated voltage profile computed.")
 
 # ---------------------------------------------------------------------------
-# Stage 5: Dual-axis plots — p.u. (left), kV (right); 100–145 kV; Raw (green) vs Mitigated (red); PGCB ±6%
+# Stage 5: Dual-axis plots — Future voltage fluctuation: raw vs FACTS-mitigated
+# FACTS reduces deviation from nominal and dampens fluctuation (PGCB ±6%).
 # ---------------------------------------------------------------------------
 # PGCB limits in p.u. and kV
 pu_lo, pu_hi = PGCB_LOWER_PU, PGCB_UPPER_PU
 kv_lo, kv_hi = pu_lo * BASE_KV, pu_hi * BASE_KV
+
+# Summary: % of days within PGCB ±6% and max deviation from 1 p.u. (before vs after FACTS)
+raw_max_pu = future_df['Predicted_Max_Voltage_kV_Raw'].values / BASE_KV
+raw_min_pu = future_df['Predicted_Min_Voltage_kV_Raw'].values / BASE_KV
+mit_max_pu = future_df['Predicted_Max_Voltage_kV_Mitigated'].values / BASE_KV
+mit_min_pu = future_df['Predicted_Min_Voltage_kV_Mitigated'].values / BASE_KV
+within_lim_raw = np.sum((raw_max_pu <= pu_hi) & (raw_min_pu >= pu_lo)) / len(future_df) * 100
+within_lim_mit = np.sum((mit_max_pu <= pu_hi) & (mit_min_pu >= pu_lo)) / len(future_df) * 100
+max_dev_raw = max(np.abs(raw_max_pu - 1.0).max(), np.abs(raw_min_pu - 1.0).max()) * 100
+max_dev_mit = max(np.abs(mit_max_pu - 1.0).max(), np.abs(mit_min_pu - 1.0).max()) * 100
+print("\n--- FACTS impact on future voltage fluctuation (2026-2027) ---")
+print(f"  Days within PGCB ±6%:  Raw {within_lim_raw:.1f}%  →  With FACTS {within_lim_mit:.1f}%")
+print(f"  Max deviation from 1 p.u.:  Raw {max_dev_raw:.2f}%  →  With FACTS {max_dev_mit:.2f}% (reduction: {max_dev_raw - max_dev_mit:.2f}% points)")
 
 for label, raw_col, mit_col in [
     ('Max_Voltage', 'Predicted_Max_Voltage_kV_Raw', 'Predicted_Max_Voltage_kV_Mitigated'),
@@ -163,7 +177,7 @@ for label, raw_col, mit_col in [
     ax1.plot(future_df['Date'], future_df[mit_col] / BASE_KV, color='red', linewidth=2, label='Mitigated (With FACTS)')
     ax1.grid(True, alpha=0.3)
     ax1.legend(loc='upper right')
-    ax1.set_title(f"132 kV Northern Bangladesh — {label} (2026-2027)\nRaw vs FACTS-Mitigated; PGCB ±6% statutory limits")
+    ax1.set_title(f"Future voltage fluctuation (2026-2027): {label}\nRaw forecast vs FACTS-mitigated; FACTS reduces deviation from nominal and dampens fluctuation. PGCB ±6%.")
     ax2 = ax1.twinx()
     ax2.set_ylabel("Voltage (kV)", fontsize=11)
     ax2.set_ylim(KV_PLOT_MIN, KV_PLOT_MAX)

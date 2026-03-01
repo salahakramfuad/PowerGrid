@@ -23,8 +23,8 @@ df['DayOfYear'] = df['Date'].dt.dayofyear
 df['DayOfWeek'] = df['Date'].dt.dayofweek  # 0=Monday, 6=Sunday
 
 # 4. Create Bangladesh-Specific Features
-# Irrigation Season: Peak load in Northern BD is usually Feb to April
-df['Is_Irrigation'] = df['Month'].apply(lambda x: 1 if x in [2, 3, 4] else 0)
+# Irrigation Season: Peak load in Northern BD — Feb, Mar, Apr, May (4 months)
+df['Is_Irrigation'] = df['Month'].apply(lambda x: 1 if x in [2, 3, 4, 5] else 0)
 
 # Weekend Feature: In Bangladesh, Friday (4) and Saturday (5) usually see lower industrial load
 df['Is_Weekend'] = df['DayOfWeek'].apply(lambda x: 1 if x in [4, 5] else 0)
